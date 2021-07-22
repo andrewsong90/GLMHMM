@@ -29,7 +29,17 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
         T = stim[trial]['data'].shape[1]
 
         # Convert into states x bins x time and sum across bins
-        filtpower = np.reshape(np.sum(np.reshape(np.tile(np.expand_dims(emit_w, axis = 2), (1, 1, T)), (num_states, num_total_bins, T), order = 'F') * np.tile(np.reshape(stim[trial]['data'], (1, num_total_bins, T), order = 'F'), (num_states, 1, 1)), axis = 1), (num_states, T), order = 'F')
+        #######
+        # (!!) States here mean number of emissions
+        filtpower = np.reshape(
+                                    np.sum(
+                                            np.reshape(
+                                                        np.tile(np.expand_dims(emit_w, axis = 2), (1, 1, T)), (num_states, num_total_bins, T), order = 'F'
+                                                    ) * np.tile(np.reshape(stim[trial]['data'], (1, num_total_bins, T), order = 'F'), (num_states, 1, 1)), axis = 1
+                                        ),
+                                    (num_states, T), order = 'F'
+                                )
+
         # Now filtpower is states x time
         # filtpower is the filter times the stimulus
 
@@ -49,7 +59,17 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
             print('Ugh!')
 
         tgrad = tgrad * np.tile(stim[trial]['gamma'][state_num, :], (num_states))
-        tgrad = np.sum(np.tile(np.reshape(tgrad, (num_states, 1, T), order = 'F'), (1, num_total_bins, 1)) * np.tile(np.reshape(stim[trial]['data'], (1, num_total_bins, T), order = 'F'), (num_states, 1, 1)), axis = 2)
+        tgrad = np.sum(
+                            np.tile(
+                                        np.reshape(tgrad, (num_states, 1, T), order = 'F'),
+                                        (1, num_total_bins, 1)
+                                    ) *
+                            np.tile(
+                                        np.reshape(stim[trial]['data'], (1, num_total_bins, T), order = 'F'),
+                                        (num_states, 1, 1)
+                                    ),
+                            axis = 2
+                        )
 
         all_grad = all_grad + tgrad
         all_value = all_value + value

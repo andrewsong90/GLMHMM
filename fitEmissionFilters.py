@@ -9,7 +9,7 @@ from .minimizeLBFGS import _minimize_LBFGS
 def _fit_emission_filters(stim, symb, gamma, xi, emit_w, options, train_data):
 
     new_stim = []
-    print("FIT")
+
     for trial in range(0, len(train_data)):
         # Please don't ask me why I decided it was a good idea to call the number of emissions 'num_states' here. Just roll with it!
         new_stim.append({'emit' : symb[train_data[trial]], 'gamma' : gamma[train_data[trial]], 'xi' : xi[train_data[trial]], 'num_states' : options['num_emissions']})
