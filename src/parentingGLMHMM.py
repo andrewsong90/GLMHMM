@@ -13,7 +13,8 @@ if __name__ == "__main__":
     import scipy.stats
     import scipy.ndimage.filters
 
-    PATH = '/Users/andrewsong/1_Research/data/Parenting/GLMHMM/GLMHMM.mat'
+    # PATH = '/Users/andrewsong/1_Research/data/Parenting/GLMHMM/GLMHMM.mat'
+    PATH ='../data/GLMHMM.mat'
     info = loadmat(PATH)
 
     subj = 'F42'
