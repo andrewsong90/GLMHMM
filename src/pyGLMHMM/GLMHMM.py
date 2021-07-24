@@ -334,7 +334,6 @@ class GLMHMMEstimator(BaseEstimator):
         effective_ind = 0
         last_try = False
 
-        print("Total trials ", total_trials)
         for trial in range(0, total_trials):
 
             if self.symb_exists == True:
@@ -346,6 +345,7 @@ class GLMHMMEstimator(BaseEstimator):
             self.analog_lik_ = _GLMHMM_analog_lik(self.analog_emit_w_, X, y_analog, num_analog_emit)
 
         output = []
+
 
         for ind in range(0, self.max_iter):
 
@@ -1002,6 +1002,7 @@ class GLMHMMEstimator(BaseEstimator):
         ###
         # For each state i, number of emissions x filter_length
         #
+
         for i in range(0, self.num_states):
             print("---- State {} ----".format(i))
             if self.num_steps == 1:
@@ -1009,7 +1010,7 @@ class GLMHMMEstimator(BaseEstimator):
                                                 lambda x: _emit_learning_fun(x, new_stim, i, self.get_params()),
                                                 np.reshape(self.emit_w_[i, :, :].T, (self.emit_w_.shape[1] * self.emit_w_.shape[2]), order = 'F'),
                                                 lr = 1,
-                                                max_iter = 40,
+                                                max_iter = 1000,
                                                 tol = 1e-5,
                                                 line_search = 'Wolfe',
                                                 interpolate = True,
@@ -1032,7 +1033,7 @@ class GLMHMMEstimator(BaseEstimator):
                                                 lambda x: _trans_learning_fun(x, new_stim, i, self.get_params()),
                                                 np.reshape(self.trans_w_[i, :, :].T, (self.trans_w_.shape[1] * self.trans_w_.shape[2]), order = 'F'),
                                                 lr = 1,
-                                                max_iter = 40,
+                                                max_iter = 1000,
                                                 tol = 1e-5,
                                                 line_search = 'Wolfe',
                                                 interpolate = True,

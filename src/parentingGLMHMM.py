@@ -8,20 +8,24 @@ import sys
 import os
 
 from pyGLMHMM import GLMHMM
+from datetime import datetime
 
 if __name__ == "__main__":
     import scipy.stats
     import scipy.ndimage.filters
 
     # PATH = '/Users/andrewsong/1_Research/data/Parenting/GLMHMM/GLMHMM.mat'
-    PATH ='../data/GLMHMM.mat'
-    info = loadmat(PATH)
+    DATAPATH ='../data/GLMHMM.mat'
+    info = loadmat(DATAPATH)
 
     subj = 'F42'
-    numOfbins = 10 # (10 Hz x 3 seconds)
+    maxiter = 10
+    numOfbins = 30 # (10 Hz x 3 seconds)
     prune_nan = True
     filter_offset = 1
-    num_states = 3
+    num_states = 1
+    num_emissions = 7
+    num_feedbacks = 8
 
     numOfanimals = info['animals'].shape[-1]
     output = {}
@@ -56,11 +60,11 @@ if __name__ == "__main__":
 
         dict = []
         temp = info['features_animal'][0][idx][:,0]
-        temp = (temp - np.min(temp)) / (np.max(temp) - np.min(temp))
+        # temp = (temp - np.min(temp)) / (np.max(temp) - np.min(temp))
         dict.append(temp)
 
         temp = info['features_animal'][0][idx][:,1]
-        temp = (temp - np.min(temp)) / (np.max(temp) - np.min(temp))
+        # temp = (temp - np.min(temp)) / (np.max(temp) - np.min(temp))
         dict.append(temp)
 
         temp = info['features_animal'][0][idx][:,3]
@@ -83,6 +87,8 @@ if __name__ == "__main__":
 
         features[idx] = np.stack(dict, axis=0)
         features[idx] = features[idx][:, min_idx:max_idx]
+        features[idx] = scipy.stats.zscore(features[idx], axis=1, nan_policy='raise')
+
 
     ##############
     # Regressor (We want to build the Toeplitz matrix)
@@ -110,8 +116,6 @@ if __name__ == "__main__":
 
     ###################
     # Run the estimator
-    num_emissions = output[0].shape[0]
-    num_feedbacks = features[0].shape[0]
 
     estimator = GLMHMM.GLMHMMEstimator(
                                     num_samples = len(animal_list),
@@ -125,5 +129,12 @@ if __name__ == "__main__":
 
     output = estimator.fit(regressors, target, [])
 
+    random_date = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+    PATH = '../results/{}'.format(random_date)
+    os.makedirs(PATH)
+
     print("Num of iterations: ", len(output))
-    print(output[-1]['loglik'])
+    fig, ax = plt.subplots(figsize=(8,8))
+    ax.plot(output[-1]['loglik'],linewidth=2)
+    ax.set_xlabel('Epoch')
+    plt.savefig(os.path.join(PATH, 'likelihood.png'))

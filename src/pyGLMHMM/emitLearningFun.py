@@ -4,7 +4,7 @@ from numba import jit
 from scipy.sparse import spdiags
 from scipy.linalg import block_diag
 
-@jit
+# @jit
 def _emit_learning_fun(emit_w, stim, state_num, options):
     # emit_w are the weights that we are learning: in format states x weights
     # stim is a list/dictionary with each stimulus (stim[]['data']) and the probability emission functions (stim[]['gamma'] and stim[]['xi'])
@@ -48,7 +48,8 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
         # Gradient is then:
         # gamma * (1|emission - exp(filtpower) / (1+sum(exp(filtpower)))) * stim
         value = stim[trial]['gamma'][state_num, :] * -np.log(1 + np.sum(np.exp(filtpower), axis = 0))
-        tgrad = -np.exp(filtpower) / np.tile(1 + np.sum(np.exp(filtpower), axis = 0), (num_states))
+        tgrad = -np.exp(filtpower) / np.tile(1 + np.expand_dims(np.sum(np.exp(filtpower), axis = 0), axis=0), (num_states, 1))
+        # tgrad = -np.exp(filtpower) / np.tile(1 + np.expand_dims(np.sum(np.exp(filtpower), axis = 0), axis=0), (num_states))
 
         for i in range(0, filtpower.shape[0]):
             tgrad[i, stim[trial]['emit'].astype(int) == (i + 1)] = 1 + tgrad[i, stim[trial]['emit'].astype(int) == (i + 1)]
@@ -58,7 +59,7 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
         if np.any(np.isnan(value)):
             print('Ugh!')
 
-        tgrad = tgrad * np.tile(stim[trial]['gamma'][state_num, :], (num_states))
+        tgrad = tgrad * np.tile(stim[trial]['gamma'][state_num, :], (num_states, 1))
         tgrad = np.sum(
                             np.tile(
                                         np.reshape(tgrad, (num_states, 1, T), order = 'F'),
