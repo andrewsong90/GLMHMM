@@ -18,19 +18,22 @@ if __name__ == "__main__":
     DATAPATH ='../data/GLMHMM.mat'
     info = loadmat(DATAPATH)
 
-    subj = 'F42'
-    maxiter = 10
+    subj = 'F43'
     numOfbins = 30 # (10 Hz x 3 seconds)
     prune_nan = True
     filter_offset = 1
     num_states = 1
     num_emissions = 7
     num_feedbacks = 8
+    max_optim_iter = 3
+    fs = 10
 
     numOfanimals = info['animals'].shape[-1]
+    animal_names = []
     output = {}
     features = {}
     animal_list = []
+    stamps = {}
 
     ##############################
     # preprocessing feature inputs
@@ -38,9 +41,14 @@ if __name__ == "__main__":
     # features: feature dictionary of (features x T)
     # output: output (behavior) dictionary of (features x T)
 
+    behavior_names = [name[0] for name in info['behavior_cleaned'][0]]
+    behavior_names = ['idle'] + behavior_names
+
     for idx in range(numOfanimals):
 
         T = info['features_animal'][0][idx].shape[0]
+
+        animal_names.append(info['animals'][0, idx])
 
         if subj == 'all':
             animal_list.append(idx)
@@ -57,14 +65,13 @@ if __name__ == "__main__":
             max_idx = T
 
         output[idx] = info['ethogram_animal_string'][0][idx][min_idx:max_idx, :].flatten()
+        stamps[idx] = [min_idx, max_idx]
 
         dict = []
         temp = info['features_animal'][0][idx][:,0]
-        # temp = (temp - np.min(temp)) / (np.max(temp) - np.min(temp))
         dict.append(temp)
 
         temp = info['features_animal'][0][idx][:,1]
-        # temp = (temp - np.min(temp)) / (np.max(temp) - np.min(temp))
         dict.append(temp)
 
         temp = info['features_animal'][0][idx][:,3]
@@ -102,9 +109,7 @@ if __name__ == "__main__":
                 feature_conv_mat[feature_idx * numOfbins + bin_idx, bin_idx:T+bin_idx] = feature[feature_idx]
 
         feature_conv_mat[-filter_offset:, :] = 1
-
         features[idx] = feature_conv_mat[:, :T]
-
 
     print("ANIMAL ", animal_list)
     regressors = []
@@ -113,6 +118,12 @@ if __name__ == "__main__":
     for idx in animal_list:
         regressors.append(features[idx])
         target.append(output[idx])
+
+    fig, ax = plt.subplots(figsize=(20,6))
+    for idx in range(len(target)):
+        ax.plot(target[idx], label="{}".format(idx))
+    ax.legend()
+    plt.savefig('ethogram_{}.png'.format(subj))
 
     ###################
     # Run the estimator
@@ -124,6 +135,7 @@ if __name__ == "__main__":
                                     num_feedbacks = num_feedbacks,
                                     num_filter_bins = numOfbins,
                                     num_steps = 1,
+                                    max_optim_iter = max_optim_iter,
                                     filter_offset = filter_offset
                                 )
 
@@ -133,8 +145,61 @@ if __name__ == "__main__":
     PATH = '../results/{}'.format(random_date)
     os.makedirs(PATH)
 
+    titlesize= 17
+    fontsize = 14
+
     print("Num of iterations: ", len(output))
     fig, ax = plt.subplots(figsize=(8,8))
     ax.plot(output[-1]['loglik'],linewidth=2)
-    ax.set_xlabel('Epoch')
-    plt.savefig(os.path.join(PATH, 'likelihood.png'))
+    ax.set_xlabel('Epoch', fontsize=fontsize)
+    ax.set_title("Negative log-likelihood {:.2e}".format(output[-1]['loglik'][-1]), fontsize=titlesize)
+    plt.savefig(os.path.join(PATH, 'likelihood.png'), bbox_inches='tight')
+
+    forward_ll_arr = output[-1]['prob_emission']
+
+    for idx, animal_idx in enumerate(animal_list):
+
+        fig, ax = plt.subplots(2, 1, figsize=(18, 10))
+        forward_ll = forward_ll_arr[idx]
+
+        min_idx = stamps[animal_idx][0]
+        max_idx = stamps[animal_idx][1]
+
+        for emit_idx in range(len(forward_ll)):
+            ax[0].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, forward_ll[emit_idx], label='{} ({})'.format(behavior_names[emit_idx], emit_idx))
+        ax[0].legend(fontsize=11, loc=4)
+        ax[0].set_title("Forward prediction likelihood", fontsize=titlesize)
+        ax[0].set_ylabel('p(Behavior)', fontsize=fontsize)
+
+        ax[1].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, target[idx])
+        ax[1].set_title("Actual observations", fontsize=titlesize)
+        ax[1].set_xlabel("Time (s)", fontsize=fontsize)
+        ax[1].set_ylabel("Behavior", fontsize=fontsize)
+
+        ax[0].tick_params('both', labelsize=fontsize)
+        ax[1].tick_params('both', labelsize=fontsize)
+
+        plt.savefig(os.path.join(PATH, 'forward_likelihood_animal_{}.png'.format(animal_names[animal_idx][0])), bbox_inches='tight')
+
+    emit_w_final = output[-1]['emit_w']
+    emit_w_init = estimator.emit_w_init_
+
+    for state_idx in range(num_states):
+        fig, ax = plt.subplots(num_emissions-1, 1, figsize=(14,20))
+        for emit_idx in range(num_emissions-1):
+            ax[emit_idx].plot(emit_w_init[state_idx, emit_idx, :],"-g", label='Init')
+            ax[emit_idx].plot(emit_w_final[state_idx, emit_idx, :], "-r", label='Learned')
+            ax[emit_idx].tick_params('both', labelsize=fontsize)
+
+            ax[emit_idx].set_ylabel("Emission {}".format(emit_idx+1), fontsize=fontsize)
+            for idx in range(num_feedbacks+1):
+                ax[emit_idx].axvline(numOfbins * idx, linestyle='--')
+
+            if emit_idx == 0:
+                ax[emit_idx].set_title("Emission filters for state {}".format(state_idx), fontsize=titlesize)
+
+            if emit_idx == num_emissions -2:
+                ax[emit_idx].set_xlabel("Features", fontsize=fontsize)
+                ax[emit_idx].legend(fontsize=14)
+
+        plt.savefig(os.path.join(PATH, 'state{}_emission{}_filters.png'.format(state_idx, emit_idx)), bbox_inches='tight')

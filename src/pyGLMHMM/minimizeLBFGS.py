@@ -66,7 +66,8 @@ def _minimize_LBFGS(objective_function, x_initial, lr = 1, max_iter = 500, tol =
         # Stopping criterion
         if fail == True or torch.isnan(obj) or n_iter == max_iter - 1:
             break
-        elif torch.norm(grad) < tol or x_dist < 1e-5 or f_dist < 1e-9 or obj.item() == -float('inf'):
+        # elif torch.norm(grad) < tol or x_dist < 1e-5 or f_dist < 1e-9 or obj.item() == -float('inf'):
+        elif torch.norm(grad) < tol or x_dist < 1e-4 or f_dist < 1e-4 or obj.item() == -float('inf'):
             break
 
         x_old.copy_(x_new)

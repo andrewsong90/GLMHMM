@@ -19,6 +19,7 @@ from .transLearningStats import _trans_learning_stats
 from .weightedLSByState import _weighted_LS_by_state
 from .collectWLSInfo import _collect_WLS_info
 from .regularizationSchedule import _regularization_schedule
+from .ForwardLikelihood import _forward_likelihood
 
 from .minimizeLBFGS import _minimize_LBFGS
 
@@ -179,6 +180,7 @@ class GLMHMMEstimator(BaseEstimator):
                  random_state = None,
                  tol = 1e-4,
                  max_iter = 1000,
+                 max_optim_iter = 5,
                  num_samples = 1,
                  num_states = 2,
                  num_emissions = 2,
@@ -215,6 +217,7 @@ class GLMHMMEstimator(BaseEstimator):
         self.random_state = random_state
         self.tol = tol
         self.max_iter = max_iter
+        self.max_optim_iter = max_optim_iter
         self.num_samples = num_samples
         self.num_states = num_states
         self.num_emissions = num_emissions
@@ -294,7 +297,7 @@ class GLMHMMEstimator(BaseEstimator):
         loglik[0] = self.init_loglik
 
         self.num_states = max(self.emit_w_.shape[0], self.analog_emit_w_.shape[0], self.trans_w_.shape[0])
-        self.num_emissions = self.emit_w_.shape[1]
+        # self.num_emissions = self.emit_w_.shape[1]
 
         if self.analog_flag == True:
             num_total_bins = max(self.emit_w_.shape[2], self.analog_emit_w_.shape[2], self.trans_w_.shape[2])
@@ -496,7 +499,7 @@ class GLMHMMEstimator(BaseEstimator):
                 else:
                     for trial in range(0, len(X)):
                         # Please don't ask me why I decided it was a good idea to call the number of emissions 'num_states' here. Just roll with it!
-                        new_stim.append({'emit' : y[trial], 'gamma' : gamma[trial], 'xi' : xi[trial], 'num_states' : self.num_emissions})
+                        new_stim.append({'emit' : y[trial], 'gamma' : gamma[trial], 'xi' : xi[trial], 'num_states' : self.num_emissions-1})
 
                         if self.GLM_emissions == True:
                             new_stim[trial]['data'] = X[trial]
@@ -507,11 +510,11 @@ class GLMHMMEstimator(BaseEstimator):
 
                     tmp_pgd1 = np.zeros((self.num_states, 1))
                     tmp_pgd2 = np.zeros((self.num_states, 1))
-                    tmp_pgd3 = np.zeros((self.num_states, self.num_emissions + 1, self.num_emissions + 1))
-                    tmp_pgd4 = np.zeros((self.num_states, self.num_emissions + 1, self.num_emissions + 1))
+                    tmp_pgd3 = np.zeros((self.num_states, self.num_emissions, self.num_emissions))
+                    tmp_pgd4 = np.zeros((self.num_states, self.num_emissions, self.num_emissions))
                     tmp_pgd_lik = np.zeros((self.num_states, 1))
 
-                    hess_diag_emit = np.zeros((self.num_states, self.num_emissions, num_total_bins))
+                    hess_diag_emit = np.zeros((self.num_states, self.num_emissions-1, num_total_bins))
 
                     self._m_step_emission(new_stim)
 
@@ -525,7 +528,16 @@ class GLMHMMEstimator(BaseEstimator):
                         [tmp_pgd1[i], hess_d] = _emit_learning_stats(np.reshape(self.emit_w_[i, :, :].T, (self.emit_w_.shape[1] * self.emit_w_.shape[2], 1), order = 'F'), new_stim, i, self.get_params())
                         hess_diag_emit[i, :, :] = np.reshape(hess_d, (hess_diag_emit.shape[2], hess_diag_emit.shape[1]), order = 'F').T
 
-                        [tmp_pgd_lik[i], tmp_pgd1[i], tmp_pgd2[i], tmp_pgd3_temp, tmp_pgd4_temp] = _emit_likelihood(np.reshape(self.emit_w_[i, :, :].T, (self.emit_w_.shape[1] * self.emit_w_.shape[2], 1), order = 'F'), new_stim, i)
+                        [tmp_pgd_lik[i], tmp_pgd1[i], tmp_pgd2[i], tmp_pgd3_temp, tmp_pgd4_temp] = _emit_likelihood(
+                                                                                                                        np.reshape(
+                                                                                                                                        self.emit_w_[i, :, :].T,
+                                                                                                                                        (self.emit_w_.shape[1] * self.emit_w_.shape[2], 1),
+                                                                                                                                        order = 'F'
+                                                                                                                                    ),
+                                                                                                                        new_stim,
+                                                                                                                        i
+                                                                                                                    )
+
                         tmp_pgd3[i, :, :] = tmp_pgd3_temp
                         tmp_pgd4[i, :, :] = tmp_pgd4_temp
 
@@ -730,6 +742,24 @@ class GLMHMMEstimator(BaseEstimator):
             output[ind]['loglik'] = loglik[1:ind + 1]
 
             print('Log likelihood: ' + str(loglik[ind + 1]))
+
+            #################
+            # Forward likelihood
+            new_stim= []
+            for trial in range(0, len(X)):
+                # Please don't ask me why I decided it was a good idea to call the number of emissions 'num_states' here. Just roll with it!
+                new_stim.append({'emit' : y[trial], 'gamma' : gamma[trial], 'xi' : xi[trial], 'num_emissions' : self.num_emissions})
+
+                if self.GLM_emissions == True:
+                    new_stim[trial]['data'] = X[trial]
+                    new_stim[trial]['num_total_bins'] = num_total_bins
+                else:
+                    new_stim[trial]['data']  = X[trial][-1, :]
+                    new_stim[trial]['num_total_bins'] = 1
+
+            result = _forward_likelihood(self.emit_w_, new_stim)
+            output[ind]['prob_emission'] = result['emission']
+            output[ind]['forward_ll'] = result['likelihood']
 
             # Now do this for not just the loglik but *each* of the likelihoods individually
             # I have been stopping if the % change in log likelihood is below some threshold
@@ -1010,13 +1040,13 @@ class GLMHMMEstimator(BaseEstimator):
                                                 lambda x: _emit_learning_fun(x, new_stim, i, self.get_params()),
                                                 np.reshape(self.emit_w_[i, :, :].T, (self.emit_w_.shape[1] * self.emit_w_.shape[2]), order = 'F'),
                                                 lr = 1,
-                                                max_iter = 1000,
+                                                max_iter = self.max_optim_iter,
                                                 tol = 1e-5,
                                                 line_search = 'Wolfe',
                                                 interpolate = True,
                                                 max_ls = 25,
                                                 history_size = 100,
-                                                out = False
+                                                out = True
                                             )
             else:
                 outweights = _minimize_LBFGS(lambda x: _emit_multistep_learning_fun(x, new_stim, i, self.get_params()), np.reshape(self.emit_w_[i, :, :].T, (self.emit_w_.shape[1] * self.emit_w_.shape[2]), order = 'F'), lr = 1, max_iter = 500, tol = 1e-5, line_search = 'Wolfe', interpolate = True, max_ls = 25, history_size = 100, out = False)
@@ -1033,7 +1063,7 @@ class GLMHMMEstimator(BaseEstimator):
                                                 lambda x: _trans_learning_fun(x, new_stim, i, self.get_params()),
                                                 np.reshape(self.trans_w_[i, :, :].T, (self.trans_w_.shape[1] * self.trans_w_.shape[2]), order = 'F'),
                                                 lr = 1,
-                                                max_iter = 1000,
+                                                max_iter = self.max_optim_iter,
                                                 tol = 1e-5,
                                                 line_search = 'Wolfe',
                                                 interpolate = True,
