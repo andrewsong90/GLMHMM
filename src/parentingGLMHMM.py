@@ -6,6 +6,7 @@ import scipy.ndimage.filters
 import matplotlib.pyplot as plt
 import sys
 import os
+import time
 
 from pyGLMHMM import GLMHMM
 from datetime import datetime
@@ -26,6 +27,7 @@ if __name__ == "__main__":
     num_emissions = 7
     num_feedbacks = 8
     max_optim_iter = 3
+    max_iter = 150
     fs = 10
 
     numOfanimals = info['animals'].shape[-1]
@@ -135,14 +137,26 @@ if __name__ == "__main__":
                                     num_feedbacks = num_feedbacks,
                                     num_filter_bins = numOfbins,
                                     num_steps = 1,
+                                    max_iter = max_iter,
                                     max_optim_iter = max_optim_iter,
                                     filter_offset = filter_offset
                                 )
 
+    s= time.time()
+
     output = estimator.fit(regressors, target, [])
 
+    e = time.time()
+    print("=============")
+    print("Total elapsed time: ", e-s)
+    print("=============")
+
     random_date = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    PATH = '../results/{}'.format(random_date)
+    PATH = '../results/{}_state{}_iter{}'.format(
+                                                    random_date,
+                                                    num_states,
+                                                    max_iter
+                                                )
     os.makedirs(PATH)
 
     titlesize= 17
@@ -183,13 +197,20 @@ if __name__ == "__main__":
 
     emit_w_final = output[-1]['emit_w']
     emit_w_init = estimator.emit_w_init_
+    trans_w_final = output[-1]['trans_w']
+    trans_w_init = estimator.trans_w_init_
+
+    ##################
+    # Emission filters
+    ##################
 
     for state_idx in range(num_states):
         fig, ax = plt.subplots(num_emissions-1, 1, figsize=(14,20))
         for emit_idx in range(num_emissions-1):
             ax[emit_idx].plot(emit_w_init[state_idx, emit_idx, :],"-g", label='Init')
-            ax[emit_idx].plot(emit_w_final[state_idx, emit_idx, :], "-r", label='Learned')
+            ax[emit_idx].plot(emit_w_final[state_idx, emit_idx, :-1], "-r", label='Learned')
             ax[emit_idx].tick_params('both', labelsize=fontsize)
+            ax[emit_idx].set_title('Bias {:.2f}'.format(emit_w_final[state_idx, emit_idx, -1]))
 
             ax[emit_idx].set_ylabel("Emission {}".format(emit_idx+1), fontsize=fontsize)
             for idx in range(num_feedbacks+1):
@@ -202,4 +223,30 @@ if __name__ == "__main__":
                 ax[emit_idx].set_xlabel("Features", fontsize=fontsize)
                 ax[emit_idx].legend(fontsize=14)
 
-        plt.savefig(os.path.join(PATH, 'state{}_emission{}_filters.png'.format(state_idx, emit_idx)), bbox_inches='tight')
+        plt.savefig(os.path.join(PATH, 'state{}_emission_filters.png'.format(state_idx)), bbox_inches='tight')
+
+    ####################
+    # Transition filters
+    ####################
+
+    for state_idx1 in range(num_states):
+        fig, ax = plt.subplots(num_states, 1, figsize=(14,20))
+
+        for state_idx2 in range(num_states):
+            ax[state_idx2].plot(trans_w_init[state_idx1, state_idx2, :],"-g", label='Init')
+            ax[state_idx2].plot(trans_w_final[state_idx1, state_idx2, :-1], "-r", label='Learned')
+            ax[state_idx2].tick_params('both', labelsize=fontsize)
+            ax[state_idx2].set_title('Bias {:.2f}'.format(trans_w_final[state_idx1, state_idx2, -1]))
+
+            ax[state_idx2].set_ylabel("State {}".format(state_idx2), fontsize=fontsize)
+            for idx in range(num_feedbacks+1):
+                ax[state_idx2].axvline(numOfbins * idx, linestyle='--')
+
+            if state_idx2 == 0:
+                ax[state_idx2].set_title("Transition filters for state {}".format(state_idx1), fontsize=titlesize)
+
+            if state_idx2 == num_states-1:
+                ax[state_idx2].set_xlabel("Features", fontsize=fontsize)
+                ax[state_idx2].legend(fontsize=14)
+
+        plt.savefig(os.path.join(PATH, 'state{}_transition_filters.png'.format(state_idx1)), bbox_inches='tight')

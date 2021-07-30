@@ -179,7 +179,7 @@ class GLMHMMEstimator(BaseEstimator):
     def __init__(self,
                  random_state = None,
                  tol = 1e-4,
-                 max_iter = 1000,
+                 max_iter = 200,
                  max_optim_iter = 5,
                  num_samples = 1,
                  num_states = 2,
