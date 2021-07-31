@@ -35,7 +35,12 @@ def _chance_likelihood(stim):
 
         likelihood_arr.append(likelihood)
 
-    return likelihood_arr
+    result = {
+        'likelihood': likelihood_arr
+    }
+
+
+    return result
 
 def _chance_likelihood_seq(stim):
     """

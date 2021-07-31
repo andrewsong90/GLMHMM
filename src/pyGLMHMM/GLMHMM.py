@@ -20,6 +20,7 @@ from .weightedLSByState import _weighted_LS_by_state
 from .collectWLSInfo import _collect_WLS_info
 from .regularizationSchedule import _regularization_schedule
 from .ForwardLikelihood import _forward_likelihood
+from .ChanceLikelihood import _chance_likelihood
 
 from .minimizeLBFGS import _minimize_LBFGS
 
@@ -761,6 +762,9 @@ class GLMHMMEstimator(BaseEstimator):
             output[ind]['prob_emission'] = result['emission']
             output[ind]['forward_ll'] = result['likelihood']
 
+            result = _chance_likelihood(new_stim)
+            output[ind]['chance_ll'] = result['likelihood']
+
             # Now do this for not just the loglik but *each* of the likelihoods individually
             # I have been stopping if the % change in log likelihood is below some threshold
             if (abs(loglik[ind + 1] - loglik[ind]) / abs(loglik[ind]) < self.tol):
@@ -860,14 +864,8 @@ class GLMHMMEstimator(BaseEstimator):
 
         return output
 
-    def predict(self, X):
-        """Estimate model parameters using X and predict the labels for X.
-        The method fits the model and sets the parameters with which the model
-        has the largest likelihood. Within each trial, the method iterates
-        between E-step and M-step for `max_iter` times until the change of
-        likelihood is less than `tol`, otherwise, a `ConvergenceWarning` is
-        raised. After fitting, it predicts the most probable label for the
-        input data points.
+    def predict(self, X, y):
+        """Estimate likelihood metrics on the held-out dataset
 
         Parameters
         ----------
@@ -880,7 +878,50 @@ class GLMHMMEstimator(BaseEstimator):
             The target values (Class labels in classification).
         """
 
-        pass
+        print("Setting up ....")
+
+        total_trials = len(X)
+
+        self.num_states = max(self.emit_w_.shape[0], self.trans_w_.shape[0])
+        num_total_bins = max(self.emit_w_.shape[2], self.trans_w_.shape[2])
+        num_analog_params = 0
+
+        prior = []
+        gamma = []
+        xi = []
+
+        output = {}
+
+        for trial in range(0, total_trials):
+            prior.append(np.ones(self.num_states) / self.num_states)     # Is this good?!?!
+
+            T = X[trial].shape[-1]
+            gamma.append(np.ones(self.num_states, T))
+            gamma[trial] = gamma[trial] / np.tile(np.sum(gamma[trial], axis = 0), (self.num_states, 1))
+
+            xi.append([])
+
+        #################
+        # Forward likelihood
+        new_stim = []
+        for trial in range(0, len(X)):
+            new_stim.append({'emit' : y[trial], 'gamma' : gamma[trial], 'xi' : xi[trial], 'num_emissions' : self.num_emissions})
+
+            if self.GLM_emissions == True:
+                new_stim[trial]['data'] = X[trial]
+                new_stim[trial]['num_total_bins'] = num_total_bins
+            else:
+                new_stim[trial]['data']  = X[trial][-1, :]
+                new_stim[trial]['num_total_bins'] = 1
+
+        result = _forward_likelihood(self.emit_w_, new_stim)
+        output['prob_emission'] = result['emission']
+        output['forward_ll'] = result['likelihood']
+
+        result = _chance_likelihood(new_stim)
+        output['chance_ll'] = result['likelihood']
+
+        return output
 
     def _check_initial_parameters(self, X):
         """Check values of the basic parameters.

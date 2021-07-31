@@ -1,6 +1,6 @@
 import numpy as np
 import scipy.stats
-from scipy.io import loadmat
+from scipy.io import loadmat, savemat
 
 import scipy.ndimage.filters
 import matplotlib.pyplot as plt
@@ -20,9 +20,10 @@ if __name__ == "__main__":
     info = loadmat(DATAPATH)
 
     subj = 'F43'
+    subj_test = ['F45', 'F42']
     numOfbins = 30 # (10 Hz x 3 seconds)
     prune_nan = True
-    filter_offset = 1
+    filter_offset = 1   # Bias. Always set it to 1
     num_states = 1
     num_emissions = 7
     num_feedbacks = 8
@@ -250,3 +251,17 @@ if __name__ == "__main__":
                 ax[state_idx2].legend(fontsize=14)
 
         plt.savefig(os.path.join(PATH, 'state{}_transition_filters.png'.format(state_idx1)), bbox_inches='tight')
+
+    ###########################
+    # Save the relevant results
+    # (TODO)
+    result = {}
+    result['behavior'] = target
+    result['forward_ll'] = forward_ll_arr
+    result['animal_list'] = animal_list
+    result['emit_w_init'] = emit_w_init
+    result['emit_w_final'] = emit_w_final
+    result['trans_w_init'] = trans_w_init
+    result['trans_w_final'] = trans_w_final
+
+    savemat(os.path.join(PATH, 'result.mat'), result)
