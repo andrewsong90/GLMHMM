@@ -66,8 +66,6 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
             denom[idx] = temp
         tgrad = -np.exp(filtpower) / denom
 
-        # tgrad = -np.exp(filtpower) / np.tile(1 + np.expand_dims(np.sum(np.exp(filtpower), axis = 0), axis=0), (num_states))
-
         for i in range(0, filtpower.shape[0]):
             tgrad[i, stim[trial]['emit'].astype(int) == (i + 1)] = 1 + tgrad[i, stim[trial]['emit'].astype(int) == (i + 1)]
             value[stim[trial]['emit'].astype(int) == (i + 1)] = value[stim[trial]['emit'].astype(int) == (i + 1)] + stim[trial]['gamma'][state_num, stim[trial]['emit'].astype(int) == (i + 1)] * filtpower[i, stim[trial]['emit'].astype(int) == (i + 1)]

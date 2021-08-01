@@ -879,6 +879,9 @@ class GLMHMMEstimator(BaseEstimator):
         """
 
         print("Setting up ....")
+        self.symb_lik_ = []
+        self.analog_lik_ = []
+        self.trans_lik_ = []
 
         total_trials = len(X)
 
@@ -896,10 +899,20 @@ class GLMHMMEstimator(BaseEstimator):
             prior.append(np.ones(self.num_states) / self.num_states)     # Is this good?!?!
 
             T = X[trial].shape[-1]
-            gamma.append(np.ones(self.num_states, T))
+            gamma.append(np.ones((self.num_states, T)))
             gamma[trial] = gamma[trial] / np.tile(np.sum(gamma[trial], axis = 0), (self.num_states, 1))
 
             xi.append([])
+
+        for trial in range(0, total_trials):
+
+            if self.symb_exists == True:
+                self.symb_lik_.append(_GLMHMM_symb_lik(self.emit_w_, X[trial], y[trial]))
+
+            self.trans_lik_.append(_GLMHMM_trans_lik(self.trans_w_, X[trial]))
+
+        # Perform e-step to compute neccessary statistics
+        prior, gamma, xi = self._e_step(X, prior, gamma, xi, total_trials)
 
         #################
         # Forward likelihood

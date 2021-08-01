@@ -20,7 +20,7 @@ if __name__ == "__main__":
     info = loadmat(DATAPATH)
 
     subj = 'F43'
-    subj_test = ['F45', 'F42']
+    subj_test = ['F45', 'F42', 'FV4', 'MV1']
     numOfbins = 30 # (10 Hz x 3 seconds)
     prune_nan = True
     filter_offset = 1   # Bias. Always set it to 1
@@ -28,17 +28,18 @@ if __name__ == "__main__":
     num_emissions = 7
     num_feedbacks = 8
     max_optim_iter = 3
-    max_iter = 2
+    max_iter = 200
     fs = 10
     L2_smooth = True
     smooth_lambda = 0.05
-    random_state = 9999
+    random_state = 9000
 
     numOfanimals = info['animals'].shape[-1]
     animal_names = []
     output = {}
     features = {}
     animal_list = []
+    animal_list_test = []
     stamps = {}
 
     ##############################
@@ -56,11 +57,12 @@ if __name__ == "__main__":
 
         animal_names.append(info['animals'][0, idx])
 
-        if subj == 'all':
-            animal_list.append(idx)
-        else:
-            if subj in info['animals'][0][idx][0]:
+        if subj in info['animals'][0][idx][0]:
                 animal_list.append(idx)
+
+        for indiv in subj_test:
+            if indiv in info['animals'][0][idx][0]:
+                animal_list_test.append(idx)
 
         if prune_nan:
             indices = np.isnan(info['features_animal'][0][idx][:,-1])
@@ -117,13 +119,21 @@ if __name__ == "__main__":
         feature_conv_mat[-filter_offset:, :] = 1
         features[idx] = feature_conv_mat[:, :T]
 
-    print("ANIMAL ", animal_list)
+    print("ANIMAL train ", animal_list)
+    print("ANIMAL test ", animal_list_test)
+
     regressors = []
     target = []
+    regressors_test = []
+    target_test = []
 
     for idx in animal_list:
         regressors.append(features[idx])
         target.append(output[idx])
+
+    for idx in animal_list_test:
+        regressors_test.append(features[idx])
+        target_test.append(output[idx])
 
     fig, ax = plt.subplots(figsize=(20,6))
     for idx in range(len(target)):
@@ -133,6 +143,7 @@ if __name__ == "__main__":
 
     ###################
     # Run the estimator
+    ###################
 
     estimator = GLMHMM.GLMHMMEstimator(
                                         random_state = random_state,
@@ -158,10 +169,18 @@ if __name__ == "__main__":
     print("Total elapsed time: ", e-s)
     print("=============")
 
+    #################
+    # Testing
+    #################
+    output_predict = estimator.predict(regressors_test, target_test)
+    for idx in range(len(animal_list_test)):
+        print("Likelihood for {}: ".format(idx), output_predict['forward_ll'][idx] - output_predict['chance_ll'][idx])
+
     random_date = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-    PATH = '../results/{}_state{}_iter{}'.format(
+    PATH = '../results/{}_state{}_lambda{}_iter{}'.format(
                                                     random_date,
                                                     num_states,
+                                                    smooth_lambda,
                                                     max_iter
                                                 )
     os.makedirs(PATH)
@@ -176,6 +195,9 @@ if __name__ == "__main__":
     ax.set_title("Negative log-likelihood {:.2e}".format(output[-1]['loglik'][-1]), fontsize=titlesize)
     plt.savefig(os.path.join(PATH, 'likelihood.png'), bbox_inches='tight')
 
+    ####################
+    # Train data
+    ####################
     forward_ll_arr = output[-1]['prob_emission']
 
     for idx, animal_idx in enumerate(animal_list):
@@ -193,6 +215,35 @@ if __name__ == "__main__":
         ax[0].set_ylabel('p(Behavior)', fontsize=fontsize)
 
         ax[1].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, target[idx])
+        ax[1].set_title("Actual observations", fontsize=titlesize)
+        ax[1].set_xlabel("Time (s)", fontsize=fontsize)
+        ax[1].set_ylabel("Behavior", fontsize=fontsize)
+
+        ax[0].tick_params('both', labelsize=fontsize)
+        ax[1].tick_params('both', labelsize=fontsize)
+
+        plt.savefig(os.path.join(PATH, 'forward_likelihood_animal_{}.png'.format(animal_names[animal_idx][0])), bbox_inches='tight')
+
+    #####################
+    # Test data
+    #####################
+    forward_ll_arr = output_predict['prob_emission']
+
+    for idx, animal_idx in enumerate(animal_list_test):
+
+        fig, ax = plt.subplots(2, 1, figsize=(18, 10))
+        forward_ll = forward_ll_arr[idx]
+
+        min_idx = stamps[animal_idx][0]
+        max_idx = stamps[animal_idx][1]
+
+        for emit_idx in range(len(forward_ll)):
+            ax[0].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, forward_ll[emit_idx], label='{} ({})'.format(behavior_names[emit_idx], emit_idx))
+        ax[0].legend(fontsize=11, loc=4)
+        ax[0].set_title("Forward prediction likelihood", fontsize=titlesize)
+        ax[0].set_ylabel('p(Behavior)', fontsize=fontsize)
+
+        ax[1].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, target_test[idx])
         ax[1].set_title("Actual observations", fontsize=titlesize)
         ax[1].set_xlabel("Time (s)", fontsize=fontsize)
         ax[1].set_ylabel("Behavior", fontsize=fontsize)
@@ -243,7 +294,7 @@ if __name__ == "__main__":
             ax[state_idx2].plot(trans_w_init[state_idx1, state_idx2, :],"-g", label='Init')
             ax[state_idx2].plot(trans_w_final[state_idx1, state_idx2, :-1], "-r", label='Learned')
             ax[state_idx2].tick_params('both', labelsize=fontsize)
-            ax[state_idx2].set_title('Bias {:.2f}'.format(trans_w_final[state_idx1, state_idx2, -1]))
+            ax[state_idx2].set_title('Bias {:.2f}'.format(trans_w_final[state_idx1, state_idx2, -1]), fontsize=fontsize-1)
 
             ax[state_idx2].set_ylabel("State {}".format(state_idx2), fontsize=fontsize)
             for idx in range(num_feedbacks+1):
@@ -260,20 +311,16 @@ if __name__ == "__main__":
 
     ###########################
     # Save the relevant results
-    # (TODO)
     result = {}
-    # result['behavior'] = target
-    for idx in range(len(forward_ll_arr)):
-        print(forward_ll_arr[idx].shape)
-        
-    result['forward_ll'] = np.stack(forward_ll_arr, axis=0)
-    # result['animal_list'] = animal_list
-    # result['emit_w_init'] = emit_w_init
-    # result['emit_w_final'] = emit_w_final
-    # result['trans_w_init'] = trans_w_init
-    # result['trans_w_final'] = trans_w_final
+    result['behavior'] = target
+    for idx in range(len(animal_list)):
+        result['forward_ll_{}'.format(idx)] = forward_ll_arr[idx]
+    result['animal_list'] = [animal_names[idx] for idx in animal_list]
+    result['animal_list_test'] = [animal_names[idx] for idx in animal_list_test]
 
-    print(result)
-
+    result['emit_w_init'] = emit_w_init
+    result['emit_w_final'] = emit_w_final
+    result['trans_w_init'] = trans_w_init
+    result['trans_w_final'] = trans_w_final
 
     savemat(os.path.join(PATH, './result.mat'), result)
