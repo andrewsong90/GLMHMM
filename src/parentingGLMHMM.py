@@ -102,7 +102,7 @@ if __name__ == "__main__":
 
         features[idx] = np.stack(dict, axis=0)
         features[idx] = features[idx][:, min_idx:max_idx]
-        features[idx] = scipy.stats.zscore(features[idx], axis=1, nan_policy='raise')
+        features[idx] = scipy.stats.zscore(features[idx], axis=1)
 
 
     ##############
