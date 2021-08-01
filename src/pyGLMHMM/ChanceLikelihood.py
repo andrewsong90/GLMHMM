@@ -8,7 +8,7 @@ def _chance_likelihood(stim):
     """
     Chance likelihood (Frequency of each observation)
     """
-    num_emissions = stim[0]['num_states']
+    num_emissions = stim[0]['num_emissions']
     prob_obs = np.zeros(num_emissions)
     numOfobs = 0
     likelihood_arr = []

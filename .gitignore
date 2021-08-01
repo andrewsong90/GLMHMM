@@ -107,3 +107,6 @@ venv.bak/
 *.asv
 
 settings.json
+
+# Results
+results/

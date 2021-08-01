@@ -24,12 +24,15 @@ if __name__ == "__main__":
     numOfbins = 30 # (10 Hz x 3 seconds)
     prune_nan = True
     filter_offset = 1   # Bias. Always set it to 1
-    num_states = 1
+    num_states = 2
     num_emissions = 7
     num_feedbacks = 8
     max_optim_iter = 3
-    max_iter = 150
+    max_iter = 2
     fs = 10
+    L2_smooth = True
+    smooth_lambda = 0.05
+    random_state = 9999
 
     numOfanimals = info['animals'].shape[-1]
     animal_names = []
@@ -132,16 +135,19 @@ if __name__ == "__main__":
     # Run the estimator
 
     estimator = GLMHMM.GLMHMMEstimator(
-                                    num_samples = len(animal_list),
-                                    num_states = num_states,
-                                    num_emissions = num_emissions,
-                                    num_feedbacks = num_feedbacks,
-                                    num_filter_bins = numOfbins,
-                                    num_steps = 1,
-                                    max_iter = max_iter,
-                                    max_optim_iter = max_optim_iter,
-                                    filter_offset = filter_offset
-                                )
+                                        random_state = random_state,
+                                        num_samples = len(animal_list),
+                                        num_states = num_states,
+                                        num_emissions = num_emissions,
+                                        num_feedbacks = num_feedbacks,
+                                        num_filter_bins = numOfbins,
+                                        num_steps = 1,
+                                        max_iter = max_iter,
+                                        max_optim_iter = max_optim_iter,
+                                        filter_offset = filter_offset,
+                                        L2_smooth = L2_smooth,
+                                        smooth_lambda = smooth_lambda
+                                    )
 
     s= time.time()
 
@@ -256,12 +262,18 @@ if __name__ == "__main__":
     # Save the relevant results
     # (TODO)
     result = {}
-    result['behavior'] = target
-    result['forward_ll'] = forward_ll_arr
-    result['animal_list'] = animal_list
-    result['emit_w_init'] = emit_w_init
-    result['emit_w_final'] = emit_w_final
-    result['trans_w_init'] = trans_w_init
-    result['trans_w_final'] = trans_w_final
+    # result['behavior'] = target
+    for idx in range(len(forward_ll_arr)):
+        print(forward_ll_arr[idx].shape)
+        
+    result['forward_ll'] = np.stack(forward_ll_arr, axis=0)
+    # result['animal_list'] = animal_list
+    # result['emit_w_init'] = emit_w_init
+    # result['emit_w_final'] = emit_w_final
+    # result['trans_w_init'] = trans_w_init
+    # result['trans_w_final'] = trans_w_final
 
-    savemat(os.path.join(PATH, 'result.mat'), result)
+    print(result)
+
+
+    savemat(os.path.join(PATH, './result.mat'), result)
