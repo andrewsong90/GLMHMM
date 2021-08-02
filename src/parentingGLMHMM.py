@@ -24,11 +24,11 @@ if __name__ == "__main__":
     numOfbins = 30 # (10 Hz x 3 seconds)
     prune_nan = True
     filter_offset = 1   # Bias. Always set it to 1
-    num_states = 2
+    num_states = 1
     num_emissions = 7
     num_feedbacks = 8
     max_optim_iter = 3
-    max_iter = 200
+    max_iter = 2
     fs = 10
     L2_smooth = True
     smooth_lambda = 0.05
