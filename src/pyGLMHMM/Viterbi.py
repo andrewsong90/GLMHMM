@@ -13,13 +13,15 @@ def viterbi(emit_w, trans_w, X, y, state_init=None):
         S_opt_list: list of np.ndarray - Optimal state sequence of length N
     """
 
-    num_states, num_emissions, num_total_bins = emit_w.shape
-    num_emissions_eff = num_emissions -1
+    num_states, num_emissions_eff, num_total_bins = emit_w.shape
+    num_emissions = num_emissions_eff + 1
     tiny = np.finfo(0.).tiny
+
+    numOftrials = len(X)
 
     S_opt_list = []
 
-    for trial in range(0, len(stim)):
+    for trial in range(0, numOftrials):
 
         ################################
         # Compute emission probabilities
@@ -28,7 +30,7 @@ def viterbi(emit_w, trans_w, X, y, state_init=None):
         T = X[trial].shape[1]
         prob_emission = np.zeros((num_states, num_emissions, T))
 
-        for state_idx in range(numOfstates):
+        for state_idx in range(num_states):
 
             mat1 = np.zeros((num_emissions_eff, num_total_bins, T))
             for idx in range(T):
@@ -48,7 +50,7 @@ def viterbi(emit_w, trans_w, X, y, state_init=None):
                                         (num_emissions_eff, T), order = 'F'
                                     )   # (num_emissions -1 x T)
 
-            filtpower = np.vstack((np.zeros(1,T), filtpower))   # (num_emissions x T)
+            filtpower = np.vstack((np.zeros((1,T)), filtpower))   # (num_emissions x T)
 
             prob_emission[state_idx] = np.exp(filtpower)/np.sum(np.exp(filtpower), axis=0)
 
@@ -56,7 +58,7 @@ def viterbi(emit_w, trans_w, X, y, state_init=None):
         # Compute transition probabilities
         ################################
 
-        prob_transition = np.zeros((num_states, num_emissions, T-1))
+        prob_transition = np.zeros((num_states, num_states, T-1))
 
         for state_idx in range(num_states):
             # Use data from 1:end-1 or 2:end?
@@ -82,7 +84,7 @@ def viterbi(emit_w, trans_w, X, y, state_init=None):
         else:
             prob_init = state_init[trial]
 
-        A_log = np.log(prob_transition + tiny)  # (num_states x num_states x T)
+        A_log = np.log(prob_transition + tiny)  # (num_states x num_states x (T-1))
         C_log = np.log(prob_init + tiny)    # (num_states)
         B_log = np.log(prob_emission + tiny)    # (num_states x num_emissions x T)
 
@@ -94,7 +96,7 @@ def viterbi(emit_w, trans_w, X, y, state_init=None):
         # Compute D and E in a nested loop
         for n in range(1, T):
             for i in range(num_states):
-                temp_sum = A_log[:, i, n] + D_log[:, n-1]
+                temp_sum = A_log[:, i, n-1] + D_log[:, n-1]
                 D_log[i, n] = np.max(temp_sum) + B_log[i, y[trial][n], n]
                 E[i, n-1] = np.argmax(temp_sum)
 

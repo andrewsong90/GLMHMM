@@ -8,14 +8,13 @@ import sys
 import os
 import time
 
-from pyGLMHMM import GLMHMM
+from pyGLMHMM import GLMHMM, Viterbi
 from datetime import datetime
 
 if __name__ == "__main__":
     import scipy.stats
     import scipy.ndimage.filters
 
-    # PATH = '/Users/andrewsong/1_Research/data/Parenting/GLMHMM/GLMHMM.mat'
     DATAPATH ='../data/GLMHMM.mat'
     info = loadmat(DATAPATH)
 
@@ -136,11 +135,11 @@ if __name__ == "__main__":
         regressors_test.append(features[idx])
         target_test.append(output[idx])
 
-    fig, ax = plt.subplots(figsize=(20,6))
-    for idx in range(len(target)):
-        ax.plot(target[idx], label="{}".format(idx))
-    ax.legend()
-    plt.savefig('ethogram_{}.png'.format(subj))
+    # fig, ax = plt.subplots(figsize=(20,6))
+    # for idx in range(len(target)):
+    #     ax.plot(target[idx], label="{}".format(idx))
+    # ax.legend()
+    # plt.savefig('ethogram_{}.png'.format(subj))
 
     ###################
     # Run the estimator
@@ -177,6 +176,23 @@ if __name__ == "__main__":
     for idx in range(len(animal_list_test)):
         print("Likelihood for {}: ".format(idx), output_predict['forward_ll'][idx] - output_predict['chance_ll'][idx])
 
+    ##################
+    # Viterbi
+    ##################
+    S_opt_list_train = Viterbi.viterbi(
+                                        output[-1]['emit_w'],
+                                        output[-1]['trans_w'],
+                                        regressors,
+                                        target
+                                    )
+
+    S_opt_list_test = Viterbi.viterbi(
+                                        output[-1]['emit_w'],
+                                        output[-1]['trans_w'],
+                                        regressors_test,
+                                        target_test
+                                    )
+
     random_date = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
     PATH = '../results/{}_state{}_lambda{}_iter{}'.format(
                                                     random_date,
@@ -203,7 +219,7 @@ if __name__ == "__main__":
 
     for idx, animal_idx in enumerate(animal_list):
 
-        fig, ax = plt.subplots(2, 1, figsize=(18, 10))
+        fig, ax = plt.subplots(3, 1, figsize=(18, 14))
         forward_ll = forward_ll_arr[idx]
 
         min_idx = stamps[animal_idx][0]
@@ -215,13 +231,18 @@ if __name__ == "__main__":
         ax[0].set_title("Forward prediction likelihood", fontsize=titlesize)
         ax[0].set_ylabel('p(Behavior)', fontsize=fontsize)
 
-        ax[1].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, target[idx])
-        ax[1].set_title("Actual observations", fontsize=titlesize)
-        ax[1].set_xlabel("Time (s)", fontsize=fontsize)
-        ax[1].set_ylabel("Behavior", fontsize=fontsize)
+        ax[1].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, S_opt_list_train[idx])
+        ax[1].set_title("Most probable state trajectory", fontsize=titlesize)
+        ax[1].set_ylabel("State", fontsize=fontsize)
+
+        ax[2].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, target[idx])
+        ax[2].set_title("Actual observations", fontsize=titlesize)
+        ax[2].set_xlabel("Time (s)", fontsize=fontsize)
+        ax[2].set_ylabel("Behavior", fontsize=fontsize)
 
         ax[0].tick_params('both', labelsize=fontsize)
         ax[1].tick_params('both', labelsize=fontsize)
+        ax[2].tick_params('both', labelsize=fontsize)
 
         plt.savefig(os.path.join(PATH, 'forward_likelihood_animal_{}.png'.format(animal_names[animal_idx][0])), bbox_inches='tight')
 
@@ -232,7 +253,7 @@ if __name__ == "__main__":
 
     for idx, animal_idx in enumerate(animal_list_test):
 
-        fig, ax = plt.subplots(2, 1, figsize=(18, 10))
+        fig, ax = plt.subplots(3, 1, figsize=(18, 14))
         forward_ll = forward_ll_arr[idx]
 
         min_idx = stamps[animal_idx][0]
@@ -244,13 +265,18 @@ if __name__ == "__main__":
         ax[0].set_title("Forward prediction likelihood", fontsize=titlesize)
         ax[0].set_ylabel('p(Behavior)', fontsize=fontsize)
 
-        ax[1].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, target_test[idx])
-        ax[1].set_title("Actual observations", fontsize=titlesize)
-        ax[1].set_xlabel("Time (s)", fontsize=fontsize)
-        ax[1].set_ylabel("Behavior", fontsize=fontsize)
+        ax[1].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, S_opt_list_test[idx])
+        ax[1].set_title("Most probable state trajectory", fontsize=titlesize)
+        ax[1].set_ylabel("State", fontsize=fontsize)
+
+        ax[2].plot(min_idx/fs + np.arange(min_idx, max_idx)/fs, target_test[idx])
+        ax[2].set_title("Actual observations", fontsize=titlesize)
+        ax[2].set_xlabel("Time (s)", fontsize=fontsize)
+        ax[2].set_ylabel("Behavior", fontsize=fontsize)
 
         ax[0].tick_params('both', labelsize=fontsize)
         ax[1].tick_params('both', labelsize=fontsize)
+        ax[2].tick_params('both', labelsize=fontsize)
 
         plt.savefig(os.path.join(PATH, 'forward_likelihood_animal_{}.png'.format(animal_names[animal_idx][0])), bbox_inches='tight')
 
@@ -318,6 +344,13 @@ if __name__ == "__main__":
         result['forward_ll_{}'.format(idx)] = forward_ll_arr[idx]
     result['animal_list'] = [animal_names[idx] for idx in animal_list]
     result['animal_list_test'] = [animal_names[idx] for idx in animal_list_test]
+    result['trajectory_train'] = S_opt_list_train
+    result['trajectory_test'] = S_opt_list_test
+    result['forward_ll_train'] = output[-1]['forward_ll']
+    result['forward_ll_test'] = output_predict['forward_ll']
+    result['chance_ll_train'] = output[-1]['chance_ll']
+    result['chance_ll_test'] = output_predict['chance_ll']
+    result['random_seed'] = random_state
 
     result['emit_w_init'] = emit_w_init
     result['emit_w_final'] = emit_w_final
@@ -325,3 +358,6 @@ if __name__ == "__main__":
     result['trans_w_final'] = trans_w_final
 
     savemat(os.path.join(PATH, './result.mat'), result)
+
+if __name__ == "__main__":
+    run()
