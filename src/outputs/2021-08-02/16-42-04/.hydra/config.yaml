@@ -1,0 +1,13 @@
+num_states: 2
+max_optim_iter: 3
+max_iter: 200
+random_state: 9999
+smooth_lambda: 0.05
+numOfbins: 30
+subj_train:
+- F43
+- F45
+subj_test:
+- F42
+- FV4
+- MV1

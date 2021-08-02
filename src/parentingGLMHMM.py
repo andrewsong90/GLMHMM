@@ -7,31 +7,37 @@ import matplotlib.pyplot as plt
 import sys
 import os
 import time
+import hydra
+from omegaconf import DictConfig, OmegaConf
 
 from pyGLMHMM import GLMHMM, Viterbi
 from datetime import datetime
 
-if __name__ == "__main__":
+@hydra.main(config_path="conf", config_name="config")
+def run(cfg: DictConfig):
+    hyp = cfg
+    print(hyp)
+
     import scipy.stats
     import scipy.ndimage.filters
 
     DATAPATH ='../data/GLMHMM.mat'
     info = loadmat(DATAPATH)
 
-    subj_train = ['F43', 'F45']
-    subj_test = ['F42', 'FV4', 'MV1']
-    numOfbins = 30 # (10 Hz x 3 seconds)
+    subj_train = hyp['subj_train']
+    subj_test = hyp['subj_test']
+    numOfbins = hyp['numOfbins'] # (10 Hz x 3 seconds)
     prune_nan = True
     filter_offset = 1   # Bias. Always set it to 1
-    num_states = 2
+    num_states = hyp['num_states']
     num_emissions = 7
     num_feedbacks = 8
-    max_optim_iter = 3
-    max_iter = 200
+    max_optim_iter = hyp['max_optim_iter']
+    max_iter = hyp['max_iter']
     fs = 10
     L2_smooth = True
-    smooth_lambda = 0.05
-    random_state = 9000
+    smooth_lambda = hyp['smooth_lambda']
+    random_state = hyp['random_state']
 
     numOfanimals = info['animals'].shape[-1]
     animal_names = []
