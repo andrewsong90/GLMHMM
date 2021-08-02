@@ -19,8 +19,8 @@ if __name__ == "__main__":
     DATAPATH ='../data/GLMHMM.mat'
     info = loadmat(DATAPATH)
 
-    subj = 'F43'
-    subj_test = ['F45', 'F42', 'FV4', 'MV1']
+    subj_train = ['F43', 'F45']
+    subj_test = ['F42', 'FV4', 'MV1']
     numOfbins = 30 # (10 Hz x 3 seconds)
     prune_nan = True
     filter_offset = 1   # Bias. Always set it to 1
@@ -57,7 +57,8 @@ if __name__ == "__main__":
 
         animal_names.append(info['animals'][0, idx])
 
-        if subj in info['animals'][0][idx][0]:
+        for indiv in subj_train:
+            if indiv in info['animals'][0][idx][0]:
                 animal_list.append(idx)
 
         for indiv in subj_test:

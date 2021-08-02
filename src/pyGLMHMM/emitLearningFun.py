@@ -18,7 +18,7 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
     all_value = 0
     total_T = 0
 
-    this_lambda = options['emit_lambda']
+    # this_lambda = options['emit_lambda']
 
     # Find out how many data points we are dealing with so that we can normalize
     # (I don't think we actually need to do this but it helps keep regularization values consistent from fit to fit)
