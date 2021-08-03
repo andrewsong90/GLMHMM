@@ -73,24 +73,26 @@ def _trans_learning_fun(trans_w, stim, state_num, options):
 
         D = block_diag(Dx, 0)
 
+        trans_w_omit = trans_w[np.setdiff1d(np.arange(num_states), state_num), :]
+
         if options['AR_lambda'] != -1:
             if len(options['smooth_lambda']) == 1:
                 options['smooth_lambda'] = np.tile(options['smooth_lambda'][0], [trans_w.shape[0] - 1, trans_w.shape[1]])
                 options['smooth_lambda'][:, options['AR_vec']] = options['AR_lambda']
 
-            grad_regularization[np.setdiff1d(np.arange(num_states), state_num), :] = grad_regularization[np.setdiff1d(np.arange(num_states), state_num), :] + options['smooth_lambda'] * (np.matmul(D, trans_w[np.setdiff1d(np.arange(num_states), state_num), :].T)).T
-            value_regularization = value_regularization + np.sum(np.sum(np.power((options['smooth_lambda'] / 2) * (np.matmul(D, trans_w[np.setdiff1d(np.arange(num_states), state_num), :].T)).T, 2), axis = 0), axis = 0)
+            grad_regularization[np.setdiff1d(np.arange(num_states), state_num), :] += 2*options['smooth_lambda'] * np.matmul(D, trans_w_omit.T).T
+            value_regularization += options['smooth_lambda'] * np.sum(np.matmul(trans_w_omit, np.matmul(D, trans_w_omit.T)))
         else:
-            grad_regularization[np.setdiff1d(np.arange(num_states), state_num), :] = grad_regularization[np.setdiff1d(np.arange(num_states), state_num), :] + options['smooth_lambda'] * (np.matmul(D, trans_w[np.setdiff1d(np.arange(num_states), state_num), :].T)).T
-            value_regularization = value_regularization + np.sum(np.sum(np.power((options['smooth_lambda'] / 2) * (np.matmul(D, trans_w.T)).T, 2), axis = 0), axis = 0)
+            grad_regularization[np.setdiff1d(np.arange(num_states), state_num), :] += 2*options['smooth_lambda'] * np.matmul(D, trans_w_omit.T).T
+            value_regularization += options['smooth_lambda'] * np.sum(np.matmul(trans_w_omit, np.matmul(D, trans_w_omit.T)))
 
-    if this_lambda != 0:
-        if options['AR_lambda'] != -1:
-            grad_regularization = grad_regularization + [this_lambda * trans_w[:, options['stim_vec']], options['AR_lambda'] * trans_w[:, options['AR_vec']]]
-            value_regularization = value_regularization + (this_lambda / 2) * np.sum(np.sum(np.power(trans_w[:, options['stim_vec']], 2), axis = 0), axis = 0) + (options['AR_lambda'] / 2) * np.sum(np.sum(np.power(trans_w[:, options['AR_vec']], 2), axis = 0), axis = 0)
-        else:
-            grad_regularization = grad_regularization + this_lambda * trans_w
-            value_regularization = value_regularization + (this_lambda/2) * np.sum(np.sum(np.power(trans_w, 2), axis = 0), axis = 0)
+    # if this_lambda != 0:
+    #     if options['AR_lambda'] != -1:
+    #         grad_regularization = grad_regularization + [this_lambda * trans_w[:, options['stim_vec']], options['AR_lambda'] * trans_w[:, options['AR_vec']]]
+    #         value_regularization = value_regularization + (this_lambda / 2) * np.sum(np.sum(np.power(trans_w[:, options['stim_vec']], 2), axis = 0), axis = 0) + (options['AR_lambda'] / 2) * np.sum(np.sum(np.power(trans_w[:, options['AR_vec']], 2), axis = 0), axis = 0)
+    #     else:
+    #         grad_regularization = grad_regularization + this_lambda * trans_w
+    #         value_regularization = value_regularization + (this_lambda/2) * np.sum(np.sum(np.power(trans_w, 2), axis = 0), axis = 0)
 
     all_grad = -all_grad / total_T + grad_regularization
     all_value = -all_value / total_T + value_regularization

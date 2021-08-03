@@ -18,7 +18,7 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
     all_value = 0
     total_T = 0
 
-    this_lambda = options['emit_lambda']
+    # this_lambda = options['emit_lambda']
 
     # Find out how many data points we are dealing with so that we can normalize
     # (I don't think we actually need to do this but it helps keep regularization values consistent from fit to fit)
@@ -66,8 +66,6 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
             denom[idx] = temp
         tgrad = -np.exp(filtpower) / denom
 
-        # tgrad = -np.exp(filtpower) / np.tile(1 + np.expand_dims(np.sum(np.exp(filtpower), axis = 0), axis=0), (num_states))
-
         for i in range(0, filtpower.shape[0]):
             tgrad[i, stim[trial]['emit'].astype(int) == (i + 1)] = 1 + tgrad[i, stim[trial]['emit'].astype(int) == (i + 1)]
             value[stim[trial]['emit'].astype(int) == (i + 1)] = value[stim[trial]['emit'].astype(int) == (i + 1)] + stim[trial]['gamma'][state_num, stim[trial]['emit'].astype(int) == (i + 1)] * filtpower[i, stim[trial]['emit'].astype(int) == (i + 1)]
@@ -95,28 +93,32 @@ def _emit_learning_fun(emit_w, stim, state_num, options):
     grad_regularization = 0
     value_regularization = 0
 
-    # if options['L2_smooth'] == True:
-    #     Dx1 = spdiags((np.ones((emit_w.shape[1] - 1, 1)) * np.array([-1, 1])).T, np.array([0, 1]), emit_w.shape[1] - 1 - 1, emit_w.shape[1] - 1).toarray()
-    #     Dx = np.matmul(Dx1.T, Dx1)
-    #
-    #     for fstart in range(options['num_filter_bins'], emit_w.shape[1] - 1, options['num_filter_bins']):
-    #         Dx[fstart, fstart] = 1
-    #         Dx[fstart - 1, fstart - 1] = 1
-    #         Dx[fstart - 1, fstart] = 0
-    #         Dx[fstart, fstart - 1] = 0
-    #
-    #     D = block_diag(Dx, 0)
-    #
-    #     if options['AR_lambda'] != -1:
-    #         if len(options['smooth_lambda']) == 1:
-    #             options['smooth_lambda'] = np.tile(options['smooth_lambda'][0], [emit_w.shape[0], emit_w.shape[1]])
-    #             options['smooth_lambda'][:, options['AR_vec']] = options['AR_lambda']
-    #
-    #         grad_regularization = grad_regularization + options['smooth_lambda'] * (np.matmul(D, emit_w.T)).T
-    #         value_regularization = value_regularization + np.sum(np.sum(np.power((options['smooth_lambda'] / 2) * (np.matmul(D, emit_w.T)).T, 2), axis = 0), axis = 0)
-    #     else:
-    #         grad_regularization = grad_regularization + options['smooth_lambda'] * (np.matmul(D, emit_w.T)).T
-    #         value_regularization = value_regularization + np.sum(np.sum(np.power((options['smooth_lambda'] / 2) * (np.matmul(D, emit_w.T)).T, 2), axis = 0), axis = 0)
+    if options['L2_smooth'] == True:
+        Dx1 = spdiags((np.ones((emit_w.shape[1] - 1, 1)) * np.array([-1, 1])).T, np.array([0, 1]), emit_w.shape[1] - 1 - 1, emit_w.shape[1] - 1).toarray()
+        Dx = np.matmul(Dx1.T, Dx1)
+
+        for fstart in range(options['num_filter_bins'], emit_w.shape[1] - 1, options['num_filter_bins']):
+            Dx[fstart, fstart] = 1
+            Dx[fstart - 1, fstart - 1] = 1
+            Dx[fstart - 1, fstart] = 0
+            Dx[fstart, fstart - 1] = 0
+
+        D = block_diag(Dx, 0)
+
+        if options['AR_lambda'] != -1:
+            if len(options['smooth_lambda']) == 1:
+                options['smooth_lambda'] = np.tile(options['smooth_lambda'][0], [emit_w.shape[0], emit_w.shape[1]])
+                options['smooth_lambda'][:, options['AR_vec']] = options['AR_lambda']
+
+            # grad_regularization = grad_regularization + options['smooth_lambda'] * (np.matmul(D, emit_w.T)).T
+            # value_regularization = value_regularization + np.sum(np.sum(np.power((options['smooth_lambda'] / 2) * (np.matmul(D, emit_w.T)).T, 2), axis = 0), axis = 0)
+            grad_regularization = grad_regularization + 2*options['smooth_lambda'] * (np.matmul(D, emit_w.T)).T
+            value_regularization = value_regularization + options['smooth_lambda'] * np.sum(np.matmul(emit_w, np.matmul(D, emit_w.T)))
+        else:
+            # grad_regularization = grad_regularization + options['smooth_lambda'] * (np.matmul(D, emit_w.T)).T
+            # value_regularization = value_regularization + np.sum(np.sum(np.power((options['smooth_lambda'] / 2) * (np.matmul(D, emit_w.T)).T, 2), axis = 0), axis = 0)
+            grad_regularization = grad_regularization + 2*options['smooth_lambda'] * (np.matmul(D, emit_w.T)).T
+            value_regularization = value_regularization + options['smooth_lambda'] * np.sum(np.matmul(emit_w, np.matmul(D, emit_w.T)))
     #
     # if this_lambda != 0:
     #     if options['AR_lambda'] != -1:
