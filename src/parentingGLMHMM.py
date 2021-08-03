@@ -208,6 +208,63 @@ def run(cfg: DictConfig):
                                                 )
     os.makedirs(PATH)
 
+
+
+    ###########################
+    # Save the relevant results
+    emit_w_final = output[-1]['emit_w']
+    emit_w_init = estimator.emit_w_init_
+    trans_w_final = output[-1]['trans_w']
+    trans_w_init = estimator.trans_w_init_
+
+    result = {}
+    result['behavior'] = target
+
+    forward_ll_arr = output[-1]['prob_emission']
+    for idx in range(len(animal_list)):
+        result['prob_emission_{}_train'.format(idx)] = forward_ll_arr[idx]
+
+    forward_ll_arr = output_predict['prob_emission']
+    for idx in range(len(animal_list_test)):
+        result['prob_emission_{}_test'.format(idx)] = forward_ll_arr[idx]
+
+    # Timestamps
+    train_stamp = []
+    for idx, animal_idx in enumerate(animal_list):
+        min_idx = stamps[animal_idx][0]
+        max_idx = stamps[animal_idx][1]
+        train_stamp.append([min_idx, max_idx])
+
+    test_stamp = []
+    for idx, animal_idx in enumerate(animal_list_test):
+        min_idx = stamps[animal_idx][0]
+        max_idx = stamps[animal_idx][1]
+        test_stamp.append([min_idx, max_idx])
+
+    result['train_stamp'] = train_stamp
+    result['test_stamp'] = test_stamp
+    result['fs'] = fs
+
+    result['animal_list'] = [animal_names[idx] for idx in animal_list]
+    result['animal_list_test'] = [animal_names[idx] for idx in animal_list_test]
+    result['trajectory_train'] = S_opt_list_train
+    result['trajectory_test'] = S_opt_list_test
+    result['forward_ll_train'] = output[-1]['forward_ll']
+    result['forward_ll_test'] = output_predict['forward_ll']
+    result['chance_ll_train'] = output[-1]['chance_ll']
+    result['chance_ll_test'] = output_predict['chance_ll']
+    result['random_seed'] = random_state
+
+    result['emit_w_init'] = emit_w_init
+    result['emit_w_final'] = emit_w_final
+    result['trans_w_init'] = trans_w_init
+    result['trans_w_final'] = trans_w_final
+
+    savemat(os.path.join(PATH, './result.mat'), result)
+
+    ##########################
+    # Plot
+
     titlesize= 17
     fontsize = 14
 
@@ -286,16 +343,11 @@ def run(cfg: DictConfig):
 
         plt.savefig(os.path.join(PATH, 'forward_likelihood_animal_{}.png'.format(animal_names[animal_idx][0])), bbox_inches='tight')
 
-    emit_w_final = output[-1]['emit_w']
-    emit_w_init = estimator.emit_w_init_
-    trans_w_final = output[-1]['trans_w']
-    trans_w_init = estimator.trans_w_init_
-
-    forward_ll_arr = output[-1]['forward_ll']
-    chance_ll_arr = output[-1]['chance_ll']
-
-    for idx, animal_idx in enumerate(animal_list):
-        ll = forward_ll_arr[idx] - chance_ll_arr[idx]
+    # forward_ll_arr = output[-1]['forward_ll']
+    # chance_ll_arr = output[-1]['chance_ll']
+    #
+    # for idx, animal_idx in enumerate(animal_list):
+    #     ll = forward_ll_arr[idx] - chance_ll_arr[idx]
 
     ##################
     # Emission filters
@@ -347,29 +399,6 @@ def run(cfg: DictConfig):
                 ax[state_idx2].legend(fontsize=14)
 
         plt.savefig(os.path.join(PATH, 'state{}_transition_filters.png'.format(state_idx1)), bbox_inches='tight')
-
-    ###########################
-    # Save the relevant results
-    result = {}
-    result['behavior'] = target
-    for idx in range(len(animal_list)):
-        result['forward_ll_{}'.format(idx)] = forward_ll_arr[idx]
-    result['animal_list'] = [animal_names[idx] for idx in animal_list]
-    result['animal_list_test'] = [animal_names[idx] for idx in animal_list_test]
-    result['trajectory_train'] = S_opt_list_train
-    result['trajectory_test'] = S_opt_list_test
-    result['forward_ll_train'] = output[-1]['forward_ll']
-    result['forward_ll_test'] = output_predict['forward_ll']
-    result['chance_ll_train'] = output[-1]['chance_ll']
-    result['chance_ll_test'] = output_predict['chance_ll']
-    result['random_seed'] = random_state
-
-    result['emit_w_init'] = emit_w_init
-    result['emit_w_final'] = emit_w_final
-    result['trans_w_init'] = trans_w_init
-    result['trans_w_final'] = trans_w_final
-
-    savemat(os.path.join(PATH, './result.mat'), result)
 
 if __name__ == "__main__":
     run()
