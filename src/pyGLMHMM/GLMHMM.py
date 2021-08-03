@@ -761,6 +761,9 @@ class GLMHMMEstimator(BaseEstimator):
             output[ind]['prob_emission'] = result['emission']
             output[ind]['forward_ll'] = result['likelihood']
 
+            chance_ll = _chance_likelihood(new_stim)
+            output[ind]['chances_ll'] = chance_ll
+
             # Now do this for not just the loglik but *each* of the likelihoods individually
             # I have been stopping if the % change in log likelihood is below some threshold
             if (abs(loglik[ind + 1] - loglik[ind]) / abs(loglik[ind]) < self.tol):
@@ -879,6 +882,8 @@ class GLMHMMEstimator(BaseEstimator):
         y : array-like, shape (These should be in the form of a numpy array with size (time) containing integer numbers from 0...N-1 (N: the number of possible outputs, i.e. song types) per sample in a list).
             The target values (Class labels in classification).
         """
+
+        # (TODO)
 
         pass
 

@@ -33,7 +33,7 @@ def _chance_likelihood(stim):
         for idx in range(T):
             likelihood += np.log(prob_obs[y[idx]])
 
-        likelihood_arr.append(likelihood)
+        likelihood_arr.append(likelihood/T)
 
     return likelihood_arr
 

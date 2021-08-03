@@ -200,6 +200,12 @@ if __name__ == "__main__":
     trans_w_final = output[-1]['trans_w']
     trans_w_init = estimator.trans_w_init_
 
+    forward_ll_arr = output[-1]['forward_ll']
+    chance_ll_arr = output[-1]['chance_ll']
+
+    for idx, animal_idx in enumerate(animal_list):
+        ll = forward_ll_arr[idx] - chance_ll_arr[idx]
+
     ##################
     # Emission filters
     ##################
