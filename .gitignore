@@ -110,3 +110,6 @@ settings.json
 
 # Results
 results/
+
+src/.hydra/
+src/outputs/

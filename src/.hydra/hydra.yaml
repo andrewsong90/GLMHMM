@@ -106,13 +106,10 @@ hydra:
   overrides:
     hydra:
     - hydra.run.dir=.
-    task:
-    - num_states=1
-    - random_state=9999
-    - max_iter=2
+    task: []
   job:
     name: parentingGLMHMM
-    override_dirname: max_iter=2,num_states=1,random_state=9999
+    override_dirname: ''
     id: ???
     num: ???
     config_name: config

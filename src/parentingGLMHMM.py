@@ -219,6 +219,7 @@ def run(cfg: DictConfig):
 
     result = {}
     result['behavior'] = target
+    result['behavior_test'] = target_test
 
     forward_ll_arr = output[-1]['prob_emission']
     for idx in range(len(animal_list)):
